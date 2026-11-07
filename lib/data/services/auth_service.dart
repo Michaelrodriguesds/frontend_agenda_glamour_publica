@@ -3,6 +3,7 @@ import 'api_service.dart';
 import 'cache_service.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../../core/utils/trial_gate.dart';
+import '../../core/utils/greeting.dart';
 
 class AuthService {
   final _api = ApiService();
@@ -40,6 +41,9 @@ class AuthService {
       );
       final token = response.data['token'] as String;
       await _api.saveToken(token);
+      // Nome de exibição (opcional): o servidor só envia se configurado.
+      final name = response.data['displayName'];
+      await _api.saveDisplayName(name is String ? name : null);
     } on DioException catch (e) {
       throw _api.handleError(e);
     }
@@ -87,6 +91,14 @@ class AuthService {
     await _api.clearToken();
     await CacheService.instance.clear();
     TrialGate.instance.clear();
+  }
+
+  /// Nome para a saudação: o nome configurado no servidor, ou, se não
+  /// houver, o usuário do login (lido do token). Null se nada disponível.
+  Future<String?> displayName() async {
+    final saved = await _api.getDisplayName();
+    if (saved != null && saved.trim().isNotEmpty) return saved;
+    return usernameFromJwt(await _api.getToken());
   }
 
   /// Verifica se o usuário está autenticado (tem token salvo)

@@ -26,7 +26,7 @@ class StatusBadge extends StatelessWidget {
   );
 
   factory StatusBadge.location(String location) => StatusBadge(
-    label: '📍 ${location}',
+    label: '📍 $location',
     color: AppColors.lavender,
   );
 

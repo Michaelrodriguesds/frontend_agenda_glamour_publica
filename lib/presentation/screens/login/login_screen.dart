@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/max_width.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
@@ -37,7 +38,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final state = ref.watch(authProvider);
     final loading = state.status == AuthStatus.checking;
 
-    return Scaffold(
+    return MaxWidth(
+      // PC/notebook: largura de cartão; no celular nada muda.
+      maxWidth: 460,
+      child: Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -52,7 +56,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Text('🌸', style: TextStyle(fontSize: 56)),
                   ),
                   const SizedBox(height: 16),
-                  const Center(
+                  Center(
                     child: Text(
                       'BelaAgenda',
                       style: TextStyle(
@@ -62,7 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ),
-                  const Center(
+                  Center(
                     child: Text(
                       'Agenda para negócios de beleza',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 13),
@@ -71,13 +75,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 40),
 
                   // ── E-mail ─────────────────
-                  const Text('E-mail', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  Text('E-mail', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller:  _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: AppColors.text),
-                    decoration:  const InputDecoration(
+                    style: TextStyle(color: AppColors.text),
+                    decoration:  InputDecoration(
                       hintText:    'seuemail@exemplo.com',
                       prefixIcon:  Icon(Icons.email_outlined, color: AppColors.textMuted),
                     ),
@@ -86,15 +90,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 16),
 
                   // ── Senha ───────────────────
-                  const Text('Senha', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  Text('Senha', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller:   _passCtrl,
                     obscureText:  _obscure,
-                    style: const TextStyle(color: AppColors.text),
+                    style: TextStyle(color: AppColors.text),
                     decoration:   InputDecoration(
                       hintText:    '••••••••',
-                      prefixIcon:  const Icon(Icons.lock_outline, color: AppColors.textMuted),
+                      prefixIcon:  Icon(Icons.lock_outline, color: AppColors.textMuted),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -111,7 +115,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
                       ),
-                      child: const Text('Esqueci minha senha', style: TextStyle(color: AppColors.lavender, fontSize: 12)),
+                      child: Text('Esqueci minha senha', style: TextStyle(color: AppColors.lavender, fontSize: 12)),
                     ),
                   ),
 
@@ -126,7 +130,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       child: Text(
                         state.error!,
-                        style: const TextStyle(color: AppColors.rose, fontSize: 12),
+                        style: TextStyle(color: AppColors.rose, fontSize: 12),
                       ),
                     ),
                   const SizedBox(height: 12),
@@ -147,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const RegisterScreen()),
                       ),
-                      child: const Text.rich(
+                      child: Text.rich(
                         TextSpan(
                           text: 'Não tem conta? ',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 13),
@@ -167,6 +171,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

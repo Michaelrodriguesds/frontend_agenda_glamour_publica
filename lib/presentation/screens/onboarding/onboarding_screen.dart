@@ -8,6 +8,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../providers/business_config_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../widgets/brand_logo.dart';
+import '../../widgets/max_width.dart';
 
 // Paleta de cores que o usuário pode escolher para sua marca
 const _colorPresets = [
@@ -31,6 +32,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _businessNameCtrl = TextEditingController();
+  final _ownerNameCtrl    = TextEditingController();
   String _logo = ''; // data URL (galeria) ou link
   final _location1Ctrl    = TextEditingController();
   final _location2Ctrl    = TextEditingController();
@@ -51,6 +53,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.initState();
     final config = ref.read(businessConfigProvider).config;
     _businessNameCtrl.text = config.businessName;
+    _ownerNameCtrl.text    = config.ownerName;
     _logo                  = config.logoUrl;
     _primaryColor          = config.primaryColor.isNotEmpty ? config.primaryColor : _colorPresets.first;
     _services.addAll(config.services);
@@ -101,6 +104,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _businessNameCtrl.dispose();
     _location1Ctrl.dispose();
     _location2Ctrl.dispose();
+    _ownerNameCtrl.dispose();
     _newServiceNameCtrl.dispose();
     _newServicePriceCtrl.dispose();
     super.dispose();
@@ -115,6 +119,46 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _newServiceNameCtrl.clear();
       _newServicePriceCtrl.clear();
     });
+  }
+
+  // Pergunta em quantos dias a cliente deve refazer o serviço [i].
+  // Vazio ou 0 = não lembra. Aceita de 0 a 365 (o servidor confere de novo).
+  Future<void> _editReturnDays(int i) async {
+    final s = _services[i];
+    final ctrl = TextEditingController(text: s.returnDays > 0 ? '${s.returnDays}' : '');
+    final days = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('Retorno: ${s.name}', style: TextStyle(color: AppColors.text, fontSize: 16)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Depois de quantos dias a cliente deve voltar? Deixe vazio para não lembrar.',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            style: TextStyle(color: AppColors.text),
+            decoration: const InputDecoration(hintText: 'Ex.: 15', suffixText: 'dias'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () {
+              final v = int.tryParse(ctrl.text.trim()) ?? 0;
+              Navigator.pop(ctx, v < 0 ? 0 : (v > 365 ? 365 : v));
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    // (o controller não é descartado aqui: o diálogo ainda está fechando
+    // com animação e usaria um controller já descartado.)
+    if (days == null || !mounted) return;
+    setState(() => _services[i] = s.copyWith(returnDays: days));
   }
 
   Future<void> _save() async {
@@ -136,6 +180,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       final config = BusinessConfig(
         businessName: _businessNameCtrl.text.trim(),
+        ownerName:    _ownerNameCtrl.text.trim(),
         logoUrl:      _logo,
         primaryColor: _primaryColor,
         services:     _services,
@@ -157,7 +202,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return MaxWidth(
+      // PC/notebook: largura de cartão; no celular nada muda.
+      maxWidth: 720,
+      child: Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.isFirstSetup,
         title: Text(widget.isFirstSetup ? 'Configure seu negócio' : 'Configurações do negócio'),
@@ -165,7 +213,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           if (widget.isFirstSetup)
             TextButton(
               onPressed: () => ref.read(authProvider.notifier).logout(),
-              child: const Text('Sair', style: TextStyle(color: AppColors.textMuted)),
+              child: Text('Sair', style: TextStyle(color: AppColors.textMuted)),
             ),
         ],
       ),
@@ -176,7 +224,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (widget.isFirstSetup) ...[
-                const Text(
+                Text(
                   'Falta pouco! Personalize sua agenda antes de começar.',
                   style: TextStyle(color: AppColors.text, fontSize: 16, fontWeight: FontWeight.w600),
                 ),
@@ -198,7 +246,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('SEU ID', style: TextStyle(color: AppColors.textMuted, fontSize: 11, letterSpacing: 1.5)),
+                          Text('SEU ID', style: TextStyle(color: AppColors.textMuted, fontSize: 11, letterSpacing: 1.5)),
                           Text(
                             _meInfo!['planStatus'] == 'blocked' ? 'BLOQUEADO' : 'ATIVO',
                             style: TextStyle(
@@ -211,10 +259,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       const SizedBox(height: 4),
                       SelectableText(
                         _meInfo!['businessId']?.toString() ?? '—',
-                        style: const TextStyle(color: AppColors.rose, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2),
+                        style: TextStyle(color: AppColors.rose, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Envie este ID caso precise pedir a liberação de mais 30 dias.',
                         style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                       ),
@@ -228,8 +276,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               _SectionTitle('Nome do negócio'),
               TextField(
                 controller: _businessNameCtrl,
-                style: const TextStyle(color: AppColors.text),
+                style: TextStyle(color: AppColors.text),
                 decoration: const InputDecoration(hintText: 'Ex: Studio da Ana'),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Seu nome (saudação do Início) ───────────────
+              _SectionTitle('Seu nome (opcional)'),
+              TextField(
+                controller: _ownerNameCtrl,
+                textCapitalization: TextCapitalization.words,
+                style: TextStyle(color: AppColors.text),
+                decoration: const InputDecoration(hintText: 'Ex: Ana — aparece em "Bom dia, Ana!"'),
               ),
               const SizedBox(height: 20),
 
@@ -282,8 +340,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               _SectionTitle('Locais de atendimento (1 ou 2)'),
               TextField(
                 controller: _location1Ctrl,
-                style: const TextStyle(color: AppColors.text),
-                decoration: const InputDecoration(
+                style: TextStyle(color: AppColors.text),
+                decoration: InputDecoration(
                   hintText: 'Ex: Studio Centro',
                   prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.textMuted),
                 ),
@@ -291,16 +349,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(height: 8),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Tenho um segundo local', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                title: Text('Tenho um segundo local', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
                 value: _hasSecondLocation,
-                activeColor: AppColors.rose,
+                activeThumbColor: AppColors.rose,
                 onChanged: (v) => setState(() => _hasSecondLocation = v),
               ),
               if (_hasSecondLocation)
                 TextField(
                   controller: _location2Ctrl,
-                  style: const TextStyle(color: AppColors.text),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: AppColors.text),
+                  decoration: InputDecoration(
                     hintText: 'Ex: Studio Bairro X',
                     prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.textMuted),
                   ),
@@ -309,21 +367,40 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
               // ── Serviços oferecidos ────────────────────────
               _SectionTitle('Serviços que você oferece'),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  'Toque em 🔁 para dizer em quantos dias a cliente deve voltar para refazer o serviço. '
+                  'A aba Marketing usa isso para avisar quem está na hora de voltar.',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
+                ),
+              ),
               ..._services.asMap().entries.map((entry) {
                 final i = entry.key;
                 final s = entry.value;
+                final details = [
+                  if (s.price > 0) 'R\$ ${s.price.toStringAsFixed(2)}',
+                  s.returnDays > 0 ? 'retorno em ${s.returnDays} dias' : 'sem lembrete de retorno',
+                ].join(' · ');
                 return Card(
                   color: AppColors.card,
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
-                    title: Text(s.name, style: const TextStyle(color: AppColors.text)),
-                    subtitle: s.price > 0
-                        ? Text('R\$ ${s.price.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.textMuted))
-                        : null,
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppColors.rose),
-                      onPressed: () => setState(() => _services.removeAt(i)),
-                    ),
+                    title: Text(s.name, style: TextStyle(color: AppColors.text)),
+                    subtitle: Text(details, style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(
+                        tooltip: 'Dias para retorno',
+                        icon: Icon(Icons.autorenew_rounded,
+                            color: s.returnDays > 0 ? AppColors.green : AppColors.textMuted),
+                        onPressed: () => _editReturnDays(i),
+                      ),
+                      IconButton(
+                        tooltip: 'Remover serviço',
+                        icon: Icon(Icons.delete_outline, color: AppColors.rose),
+                        onPressed: () => setState(() => _services.removeAt(i)),
+                      ),
+                    ]),
                   ),
                 );
               }),
@@ -333,7 +410,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     flex: 3,
                     child: TextField(
                       controller: _newServiceNameCtrl,
-                      style: const TextStyle(color: AppColors.text),
+                      style: TextStyle(color: AppColors.text),
                       decoration: const InputDecoration(hintText: 'Nome do serviço'),
                     ),
                   ),
@@ -343,12 +420,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: TextField(
                       controller: _newServicePriceCtrl,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(color: AppColors.text),
+                      style: TextStyle(color: AppColors.text),
                       decoration: const InputDecoration(hintText: 'R\$ (opcional)'),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_circle, color: AppColors.rose),
+                    icon: Icon(Icons.add_circle, color: AppColors.rose),
                     onPressed: _addService,
                   ),
                 ],
@@ -363,7 +440,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppColors.rose.withValues(alpha: 0.3)),
                   ),
-                  child: Text(_error!, style: const TextStyle(color: AppColors.rose, fontSize: 12)),
+                  child: Text(_error!, style: TextStyle(color: AppColors.rose, fontSize: 12)),
                 ),
               const SizedBox(height: 20),
 
@@ -380,7 +457,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -390,6 +467,6 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: const TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+        child: Text(text, style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
       );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/max_width.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
@@ -15,13 +16,9 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   final _searchCtrl = TextEditingController();
   String _query     = '';
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(generalNoteProvider.notifier).load();
-    });
-  }
+  // Não chama .load() aqui: o generalNoteProvider já carrega sozinho,
+  // assim que é criado (ver construtor de GeneralNoteNotifier). Chamar
+  // de novo aqui duplicava a requisição toda vez que a tela abria.
 
   @override
   void dispose() {
@@ -33,7 +30,10 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(generalNoteProvider);
 
-    return Scaffold(
+    return MaxWidth(
+      // PC/notebook: largura de cartão; no celular nada muda.
+      maxWidth: 860,
+      child: Scaffold(
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(AppStrings.appName.toUpperCase(),
@@ -43,11 +43,11 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         ]),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_outlined, color: AppColors.textMuted),
+            icon: Icon(Icons.refresh_outlined, color: AppColors.textMuted),
             onPressed: () => ref.read(generalNoteProvider.notifier).load(),
           ),
           IconButton(
-            icon: const Icon(Icons.add, color: AppColors.rose),
+            icon: Icon(Icons.add, color: AppColors.rose),
             onPressed: () => _openForm(context),
           ),
         ],
@@ -58,13 +58,13 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
           child: TextField(
             controller: _searchCtrl,
-            style: const TextStyle(color: AppColors.text),
+            style: TextStyle(color: AppColors.text),
             decoration: InputDecoration(
               hintText: '🔍 Buscar anotação...',
-              prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+              prefixIcon: Icon(Icons.search, color: AppColors.textMuted),
               suffixIcon: _query.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: AppColors.textMuted),
+                      icon: Icon(Icons.clear, color: AppColors.textMuted),
                       onPressed: () {
                         _searchCtrl.clear();
                         setState(() => _query = '');
@@ -120,7 +120,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         // ── Lista de notas ───────────────────────
         Expanded(
           child: state.loading
-              ? const Center(
+              ? Center(
                   child: CircularProgressIndicator(
                       color: AppColors.rose, strokeWidth: 2.5))
               : state.notes.isEmpty
@@ -146,7 +146,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         backgroundColor: AppColors.rose,
         child: const Icon(Icons.add, color: Colors.white),
       ),
-    );
+    ));
   }
 
   void _openForm(BuildContext context, {GeneralNote? note}) {
@@ -184,18 +184,18 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: const Text('Excluir anotação',
+        title: Text('Excluir anotação',
             style: TextStyle(color: AppColors.text, fontSize: 16)),
         content: Text('"${note.title}"',
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar',
+              child: Text('Cancelar',
                   style: TextStyle(color: AppColors.textMuted))),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Excluir',
+              child: Text('Excluir',
                   style: TextStyle(color: AppColors.rose))),
         ],
       ),
@@ -261,13 +261,13 @@ class _NoteCard extends StatelessWidget {
             // Título + ações
             Row(children: [
               if (note.pinned)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(right: 6),
                   child: Icon(Icons.push_pin, color: AppColors.rose, size: 14),
                 ),
               Expanded(
                 child: Text(note.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.text,
                         fontSize: 14,
                         fontWeight: FontWeight.w700),
@@ -288,7 +288,7 @@ class _NoteCard extends StatelessWidget {
               // Delete button
               GestureDetector(
                 onTap: onDelete,
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.only(left: 8),
                   child: Icon(Icons.delete_outline,
                       color: AppColors.textDim, size: 16),
@@ -301,7 +301,7 @@ class _NoteCard extends StatelessWidget {
             if (note.content.isNotEmpty)
               Text(
                 note.content,
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.textMuted, fontSize: 12),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
@@ -323,7 +323,7 @@ class _NoteCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(updatedStr,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.textDim, fontSize: 9)),
             ]),
           ]),  // Column
@@ -396,7 +396,7 @@ class _NoteFormState extends State<_NoteForm> {
   Future<void> _save() async {
     if (_titleCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Título é obrigatório'),
+        SnackBar(content: Text('Título é obrigatório'),
             backgroundColor: AppColors.rose));
       return;
     }
@@ -436,16 +436,16 @@ class _NoteFormState extends State<_NoteForm> {
         // Header
         Row(children: [
           Text(widget.note == null ? '📝 Nova Anotação' : '✏️ Editar Anotação',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.text, fontSize: 16, fontWeight: FontWeight.w700)),
           const Spacer(),
           if (_saving)
-            const SizedBox(width: 20, height: 20,
+            SizedBox(width: 20, height: 20,
                 child: CircularProgressIndicator(color: AppColors.rose, strokeWidth: 2))
           else
             TextButton(
               onPressed: _save,
-              child: const Text('Salvar',
+              child: Text('Salvar',
                   style: TextStyle(color: AppColors.rose, fontWeight: FontWeight.w700)),
             ),
         ]),
@@ -454,17 +454,17 @@ class _NoteFormState extends State<_NoteForm> {
         // Título
         TextField(
           controller: _titleCtrl,
-          style: const TextStyle(color: AppColors.text, fontSize: 15, fontWeight: FontWeight.w600),
+          style: TextStyle(color: AppColors.text, fontSize: 15, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: 'Título da anotação',
-            hintStyle: const TextStyle(color: AppColors.textDim),
+            hintStyle: TextStyle(color: AppColors.textDim),
             filled: true, fillColor: AppColors.background,
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.cardBorder)),
+                borderSide: BorderSide(color: AppColors.cardBorder)),
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.rose, width: 1.5)),
+                borderSide: BorderSide(color: AppColors.rose, width: 1.5)),
           ),
         ),
         const SizedBox(height: 12),
@@ -472,25 +472,25 @@ class _NoteFormState extends State<_NoteForm> {
         // Conteúdo
         TextField(
           controller: _contentCtrl,
-          style: const TextStyle(color: AppColors.text, fontSize: 13),
+          style: TextStyle(color: AppColors.text, fontSize: 13),
           maxLines: 5,
           decoration: InputDecoration(
             hintText: 'Escreva sua anotação...',
-            hintStyle: const TextStyle(color: AppColors.textDim),
+            hintStyle: TextStyle(color: AppColors.textDim),
             filled: true, fillColor: AppColors.background,
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.cardBorder)),
+                borderSide: BorderSide(color: AppColors.cardBorder)),
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.rose, width: 1.5)),
+                borderSide: BorderSide(color: AppColors.rose, width: 1.5)),
           ),
         ),
         const SizedBox(height: 14),
 
         // Tags
         Row(children: [
-          const Text('Tag:', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          Text('Tag:', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
           const SizedBox(width: 10),
           Expanded(
             child: SingleChildScrollView(
@@ -526,7 +526,7 @@ class _NoteFormState extends State<_NoteForm> {
 
         // Cor
         Row(children: [
-          const Text('Cor:', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          Text('Cor:', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
           const SizedBox(width: 10),
           ..._colors.map((hex) {
             Color c;
@@ -542,7 +542,8 @@ class _NoteFormState extends State<_NoteForm> {
                 decoration: BoxDecoration(
                   color: c,
                   shape: BoxShape.circle,
-                  border: sel ? Border.all(color: Colors.white, width: 2.5) : null,
+                  // AppColors.text: quase branco nos estilos escuros, escuro no Claro.
+                  border: sel ? Border.all(color: AppColors.text, width: 2.5) : null,
                   boxShadow: sel ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 8)] : null,
                 ),
               ),
@@ -569,7 +570,7 @@ class _EmptyState extends StatelessWidget {
       const SizedBox(height: 8),
       Text(
         hasFilter ? 'Nenhuma anotação encontrada' : 'Nenhuma anotação ainda\nToque em + para criar',
-        style: const TextStyle(color: AppColors.textMuted),
+        style: TextStyle(color: AppColors.textMuted),
         textAlign: TextAlign.center,
       ),
     ]),

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'business_config_provider.dart';
 import '../core/utils/auth_events.dart';
 import '../data/services/auth_service.dart';
 
@@ -88,4 +89,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
 // ── Provider global ──────────────────────────
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(AuthService());
+});
+
+// ── Nome para a saudação ─────────────────────
+// Ordem: 1) "Seu nome" das Configurações do negócio; 2) o que vier do login
+// (e-mail do token: "ana.souza@…" -> "Ana"). Recalcula no login/logout e
+// quando a configuração do negócio é salva.
+final userNameProvider = FutureProvider<String?>((ref) async {
+  final auth = ref.watch(authProvider);
+  if (auth.status != AuthStatus.authenticated) return null;
+  final owner = ref.watch(businessConfigProvider.select((s) => s.config.ownerName)).trim();
+  if (owner.isNotEmpty) return owner;
+  return AuthService().displayName();
 });

@@ -3,7 +3,7 @@ import 'api_service.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../models/business_config_model.dart';
 
-class BusinessService {
+class BusinessConfigService {
   final _api = ApiService();
 
   Future<BusinessConfig> getConfig() async {

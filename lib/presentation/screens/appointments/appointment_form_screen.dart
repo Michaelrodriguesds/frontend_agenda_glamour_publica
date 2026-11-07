@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/max_width.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -73,6 +74,9 @@ class _AppointmentFormScreenState
   // ── Disponibilidade do dia selecionado ──────────────────────────
   Map<String, TimeSlot> _slotMap  = {};
   bool                  _loadingSlots = false;
+  // Horário -> nº de agendamentos no OUTRO studio (só informativo: a regra
+  // de 2 vagas é por studio, mas a recepção precisa enxergar o dia todo).
+  Map<String, int>      _otherStudio  = {};
 
   static const _payMethods = ['A combinar', 'PIX', 'Cartão', 'Dinheiro'];
 
@@ -103,18 +107,33 @@ class _AppointmentFormScreenState
     try {
       final dateStr =
           '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}';
-      final slots = await AvailabilityService().getDaySlots(
-        dateStr,
-        location: _location,
-      );
+      // Com 2 locais, busca também o dia inteiro (todos os locais) para
+      // avisar "+N no outro local". Com 1 local só, essa 2ª busca não serve
+      // para nada e é pulada.
+      final twoLocations = AppStrings.locations.length > 1;
+      final results = await Future.wait([
+        AvailabilityService().getDaySlots(dateStr, location: _location),
+        if (twoLocations) AvailabilityService().getDaySlots(dateStr), // todos os locais
+      ]);
+      final slots = results[0];
+      final all   = twoLocations ? results[1] : slots;
+      final own   = {for (final s in slots) s.time: s.appointments.length};
+      final other = <String, int>{};
+      for (final s in all) {
+        final n = s.appointments.length - (own[s.time] ?? 0);
+        if (n > 0) other[s.time] = n;
+      }
       if (mounted) {
         setState(() {
           _slotMap      = {for (final s in slots) s.time: s};
+          _otherStudio  = other;
           _loadingSlots = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() { _slotMap = {}; _loadingSlots = false; });
+      if (mounted) {
+        setState(() { _slotMap = {}; _otherStudio = {}; _loadingSlots = false; });
+      }
     }
   }
 
@@ -168,7 +187,7 @@ class _AppointmentFormScreenState
 
     if (_proceduresList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Selecione ao menos um procedimento'),
           backgroundColor: AppColors.rose,
         ),
@@ -183,11 +202,11 @@ class _AppointmentFormScreenState
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: AppColors.card,
-          title: const Text('Horário lotado',
+          title: Text('Horário lotado',
               style: TextStyle(color: AppColors.rose)),
           content: Text(
             'O horário $_time já tem ${slot.occupancy} de ${slot.maxCapacity} vagas preenchidas.\n\nDeseja tentar assim mesmo?',
-            style: const TextStyle(color: AppColors.textMuted),
+            style: TextStyle(color: AppColors.textMuted),
           ),
           actions: [
             TextButton(
@@ -195,7 +214,7 @@ class _AppointmentFormScreenState
                 child: const Text('Escolher outro')),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Tentar assim mesmo',
+              child: Text('Tentar assim mesmo',
                   style: TextStyle(color: AppColors.rose)),
             ),
           ],
@@ -251,9 +270,9 @@ class _AppointmentFormScreenState
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: const Text('Remover agendamento',
+        title: Text('Remover agendamento',
             style: TextStyle(color: AppColors.text)),
-        content: const Text('Tem certeza?',
+        content: Text('Tem certeza?',
             style: TextStyle(color: AppColors.textMuted)),
         actions: [
           TextButton(
@@ -261,7 +280,7 @@ class _AppointmentFormScreenState
               child: const Text('Cancelar')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remover',
+            child: Text('Remover',
                 style: TextStyle(color: AppColors.rose)),
           ),
         ],
@@ -281,19 +300,22 @@ class _AppointmentFormScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return MaxWidth(
+      // PC/notebook: largura de cartão; no celular nada muda.
+      maxWidth: 720,
+      child: Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar Agendamento' : 'Novo Agendamento'),
         actions: [
           if (_isEditing)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppColors.rose),
+              icon: Icon(Icons.delete_outline, color: AppColors.rose),
               onPressed: _delete,
             ),
         ],
       ),
       body: _loading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(color: AppColors.rose))
           : Form(
               key: _formKey,
@@ -304,7 +326,7 @@ class _AppointmentFormScreenState
                   _Label('👤 Nome da cliente'),
                   TextFormField(
                     controller:         _nameCtrl,
-                    style:              const TextStyle(color: AppColors.text),
+                    style:              TextStyle(color: AppColors.text),
                     decoration:         const InputDecoration(hintText: 'Amanda Silva'),
                     validator:          Validators.clientName,
                     textCapitalization: TextCapitalization.words,
@@ -348,6 +370,7 @@ class _AppointmentFormScreenState
                             _TimeWheelField(
                               time:         _time,
                               slotMap:      _slotMap,
+                              otherStudio:  _otherStudio,
                               loadingSlots: _loadingSlots,
                               editingId:    _editId,
                               onChanged:    (t) => setState(() => _time = t),
@@ -376,7 +399,7 @@ class _AppointmentFormScreenState
                       : '💰 Valor (R\$)'),
                   TextFormField(
                     controller:   _priceCtrl,
-                    style:        const TextStyle(color: AppColors.text),
+                    style:        TextStyle(color: AppColors.text),
                     keyboardType: TextInputType.number,
                     decoration:   const InputDecoration(
                         hintText: '150', prefixText: 'R\$ '),
@@ -415,7 +438,7 @@ class _AppointmentFormScreenState
                   _Label('💬 Observações'),
                   TextFormField(
                     controller: _notesCtrl,
-                    style:      const TextStyle(color: AppColors.text),
+                    style:      TextStyle(color: AppColors.text),
                     maxLines:   3,
                     decoration: const InputDecoration(
                         hintText: 'Ex: pagar na próxima visita...'),
@@ -439,7 +462,7 @@ class _AppointmentFormScreenState
                 ],
               ),
             ),
-    );
+    ));
   }
 }
 
@@ -454,6 +477,7 @@ class _AppointmentFormScreenState
 class _TimeWheelField extends StatelessWidget {
   final String               time;
   final Map<String, TimeSlot> slotMap;
+  final Map<String, int>     otherStudio;
   final bool                 loadingSlots;
   final String?              editingId;
   final ValueChanged<String> onChanged;
@@ -461,6 +485,7 @@ class _TimeWheelField extends StatelessWidget {
   const _TimeWheelField({
     required this.time,
     required this.slotMap,
+    required this.otherStudio,
     required this.loadingSlots,
     required this.onChanged,
     this.editingId,
@@ -486,6 +511,7 @@ class _TimeWheelField extends StatelessWidget {
       builder: (_) => _TimePickerSheet(
         selected:     time,
         slotMap:      slotMap,
+        otherStudio:  otherStudio,
         loading:      loadingSlots,
         editingId:    editingId,
         onSelected:   onChanged,
@@ -535,7 +561,7 @@ class _TimeWheelField extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.expand_more, color: AppColors.textMuted, size: 18),
+          Icon(Icons.expand_more, color: AppColors.textMuted, size: 18),
         ]),
       ),
     );
@@ -545,6 +571,7 @@ class _TimeWheelField extends StatelessWidget {
 class _TimePickerSheet extends StatefulWidget {
   final String               selected;
   final Map<String, TimeSlot> slotMap;
+  final Map<String, int>     otherStudio;
   final bool                 loading;
   final String?              editingId;
   final ValueChanged<String> onSelected;
@@ -552,6 +579,7 @@ class _TimePickerSheet extends StatefulWidget {
   const _TimePickerSheet({
     required this.selected,
     required this.slotMap,
+    required this.otherStudio,
     required this.loading,
     required this.onSelected,
     this.editingId,
@@ -576,19 +604,25 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
   }
 
   Color _slotColor(String t) {
-    final slot = widget.slotMap[t];
-    if (slot == null || widget.slotMap.isEmpty) return AppColors.green;
+    final slot  = widget.slotMap[t];
+    final other = widget.otherStudio[t] ?? 0;
+    // Dourado = atenção: horário já tem alguém (neste studio ou no outro).
+    if (slot == null || widget.slotMap.isEmpty) {
+      return other > 0 ? AppColors.gold : AppColors.green;
+    }
     if (!slot.available) return AppColors.rose;
-    if (slot.occupancy > 0) return AppColors.gold;
+    if (slot.occupancy > 0 || other > 0) return AppColors.gold;
     return AppColors.green;
   }
 
   String _slotSub(String t) {
-    final slot = widget.slotMap[t];
-    if (slot == null || widget.slotMap.isEmpty) return 'livre';
-    if (!slot.available) return 'lotado';
-    if (slot.occupancy > 0) return '${slot.occupancy}/${slot.maxCapacity}';
-    return 'livre';
+    final slot  = widget.slotMap[t];
+    final other = widget.otherStudio[t] ?? 0;
+    final extra = other > 0 ? ' · +$other' : '';
+    if (slot == null || widget.slotMap.isEmpty) return 'livre$extra';
+    if (!slot.available) return 'lotado$extra';
+    if (slot.occupancy > 0) return '${slot.occupancy}/${slot.maxCapacity}$extra';
+    return 'livre$extra';
   }
 
   @override
@@ -608,9 +642,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
 
         // Header
         Row(children: [
-          const Icon(Icons.schedule_outlined, color: AppColors.rose, size: 18),
+          Icon(Icons.schedule_outlined, color: AppColors.rose, size: 18),
           const SizedBox(width: 8),
-          const Text('Selecionar Horário',
+          Text('Selecionar Horário',
               style: TextStyle(color: AppColors.text, fontSize: 16,
                   fontWeight: FontWeight.w700)),
           const Spacer(),
@@ -622,7 +656,7 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
               border:       Border.all(color: AppColors.rose.withValues(alpha: 0.4)),
             ),
             child: Text(_sel,
-                style: const TextStyle(color: AppColors.rose, fontSize: 15,
+                style: TextStyle(color: AppColors.rose, fontSize: 15,
                     fontWeight: FontWeight.w800, letterSpacing: 1)),
           ),
         ]),
@@ -638,11 +672,19 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
             const SizedBox(width: 12),
             _Dot(AppColors.rose,   'Lotado'),
           ]),
+        if (!widget.loading && widget.otherStudio.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              '+N = agendamentos nesse horário no outro local',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+            ),
+          ),
         const SizedBox(height: 14),
 
         // Grid de horários
         widget.loading
-            ? const Padding(
+            ? Padding(
                 padding: EdgeInsets.all(24),
                 child: CircularProgressIndicator(
                     color: AppColors.rose, strokeWidth: 2))
@@ -864,7 +906,7 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(text,
-            style: const TextStyle(color: AppColors.textMuted,
+            style: TextStyle(color: AppColors.textMuted,
                 fontSize: 11, letterSpacing: 0.5)),
       );
 }
@@ -884,16 +926,16 @@ class _DropdownField<T> extends StatelessWidget {
   Widget build(BuildContext context) => DropdownButtonFormField<T>(
         initialValue: value,
         dropdownColor: AppColors.card,
-        style: const TextStyle(color: AppColors.text, fontSize: 14),
+        style: TextStyle(color: AppColors.text, fontSize: 14),
         decoration: InputDecoration(
           filled:    true,
           fillColor: AppColors.card,
           enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:   const BorderSide(color: AppColors.cardBorder)),
+              borderSide:   BorderSide(color: AppColors.cardBorder)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:   const BorderSide(color: AppColors.rose, width: 1.5)),
+              borderSide:   BorderSide(color: AppColors.rose, width: 1.5)),
         ),
         items: items
             .map((i) => DropdownMenuItem(value: i, child: Text(display(i))))
@@ -917,7 +959,7 @@ class _DateField extends StatelessWidget {
             lastDate:    DateTime(2027),
             builder:     (ctx, child) => Theme(
               data: Theme.of(ctx).copyWith(
-                  colorScheme: const ColorScheme.dark(
+                  colorScheme: ColorScheme.dark(
                       primary: AppColors.rose, surface: AppColors.card)),
               child: child!,
             ),
@@ -932,11 +974,11 @@ class _DateField extends StatelessWidget {
             border:       Border.all(color: AppColors.cardBorder),
           ),
           child: Row(children: [
-            const Icon(Icons.calendar_today_outlined,
+            Icon(Icons.calendar_today_outlined,
                 color: AppColors.textMuted, size: 16),
             const SizedBox(width: 8),
             Text(AppDateUtils.toFullDate(date),
-                style: const TextStyle(color: AppColors.text, fontSize: 13)),
+                style: TextStyle(color: AppColors.text, fontSize: 13)),
           ]),
         ),
       );
@@ -963,7 +1005,7 @@ class _Toggle extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: AppColors.text, fontSize: 13)),
+            Text(label, style: TextStyle(color: AppColors.text, fontSize: 13)),
             Switch(
                 value:            value,
                 onChanged:        onChanged,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
+import '../../widgets/max_width.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -47,7 +48,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return MaxWidth(
+      // PC/notebook: largura de cartão; no celular nada muda.
+      maxWidth: 460,
+      child: Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -61,23 +65,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Comece seu teste grátis de 30 dias',
                   style: TextStyle(color: AppColors.text, fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Sem cartão de crédito. Ao final do período, entre em contato para continuar usando.',
                   style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                 ),
                 const SizedBox(height: 32),
 
-                const Text('Nome do negócio', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                Text('Nome do negócio', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _businessCtrl,
-                  style: const TextStyle(color: AppColors.text),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: AppColors.text),
+                  decoration: InputDecoration(
                     hintText: 'Ex: Studio da Ana',
                     prefixIcon: Icon(Icons.storefront_outlined, color: AppColors.textMuted),
                   ),
@@ -85,13 +89,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                const Text('E-mail', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                Text('E-mail', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: AppColors.text),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: AppColors.text),
+                  decoration: InputDecoration(
                     hintText: 'seuemail@exemplo.com',
                     prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted),
                   ),
@@ -103,15 +107,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                const Text('Senha', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                Text('Senha', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _passCtrl,
                   obscureText: _obscure,
-                  style: const TextStyle(color: AppColors.text),
+                  style: TextStyle(color: AppColors.text),
                   decoration: InputDecoration(
                     hintText: 'mínimo 6 caracteres',
-                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textMuted),
+                    prefixIcon: Icon(Icons.lock_outline, color: AppColors.textMuted),
                     suffixIcon: IconButton(
                       icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                           color: AppColors.textMuted),
@@ -122,13 +126,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                const Text('Confirmar senha', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                Text('Confirmar senha', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _passConfirmCtrl,
                   obscureText: _obscure,
-                  style: const TextStyle(color: AppColors.text),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: AppColors.text),
+                  decoration: InputDecoration(
                     hintText: '••••••••',
                     prefixIcon: Icon(Icons.lock_outline, color: AppColors.textMuted),
                   ),
@@ -144,7 +148,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppColors.rose.withValues(alpha: 0.3)),
                     ),
-                    child: Text(_error!, style: const TextStyle(color: AppColors.rose, fontSize: 12)),
+                    child: Text(_error!, style: TextStyle(color: AppColors.rose, fontSize: 12)),
                   ),
                 const SizedBox(height: 24),
 
@@ -161,6 +165,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

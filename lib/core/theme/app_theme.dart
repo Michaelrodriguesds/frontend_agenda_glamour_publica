@@ -6,26 +6,43 @@ import '../constants/app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get dark => build(AppColors.rose);
+  /// Tema do Material montado a partir da PALETA ativa (AppColors.palette).
+  /// É um `get`: cada vez que o app é redesenhado depois de trocar o
+  /// estilo, o tema é montado de novo com as cores novas.
+  static ThemeData get current {
+    final p = AppColors.palette;
+    final scheme = p.isDark
+        ? ColorScheme.dark(
+            primary:   AppColors.rose,
+            onPrimary: Colors.white,
+            secondary: AppColors.lavender,
+            surface:   AppColors.card,
+            onSurface: AppColors.text,
+            error:     AppColors.error,
+          )
+        : ColorScheme.light(
+            primary:   AppColors.rose,
+            onPrimary: Colors.white,
+            secondary: AppColors.lavender,
+            surface:   AppColors.card,
+            onSurface: AppColors.text,
+            error:     AppColors.error,
+          );
+    return _build(p.brightness, scheme);
+  }
 
-  /// Tema com a cor da marca escolhida pelo negócio ([accent]).
-  static ThemeData build(Color accent) => ThemeData(
+  static ThemeData _build(Brightness brightness, ColorScheme scheme) => ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
+    brightness: brightness,
 
     // ── Cores base ────────────────────────────
-    colorScheme: ColorScheme.dark(
-      primary:    accent,
-      secondary:  AppColors.lavender,
-      surface:    AppColors.card,
-      error:      AppColors.error,
-    ),
+    colorScheme: scheme,
 
     scaffoldBackgroundColor: AppColors.background,
 
     // ── Tipografia ────────────────────────────
     textTheme: GoogleFonts.poppinsTextTheme(
-      const TextTheme(
+      TextTheme(
         displayLarge:  TextStyle(color: AppColors.text, fontWeight: FontWeight.w700),
         headlineMedium:TextStyle(color: AppColors.text, fontWeight: FontWeight.w700),
         titleLarge:    TextStyle(color: AppColors.text, fontWeight: FontWeight.w600),
@@ -46,8 +63,11 @@ class AppTheme {
         fontSize: 18,
         fontWeight: FontWeight.w700,
       ),
-      iconTheme: const IconThemeData(color: AppColors.text),
-      systemOverlayStyle: SystemUiOverlayStyle.light,
+      iconTheme: IconThemeData(color: AppColors.text),
+      // Ícones da barra de status: claros no tema escuro, escuros no claro.
+      systemOverlayStyle: brightness == Brightness.dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
     ),
 
     // ── Cards ─────────────────────────────────
@@ -56,7 +76,7 @@ class AppTheme {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.cardBorder),
+        side: BorderSide(color: AppColors.cardBorder),
       ),
     ),
 
@@ -64,30 +84,30 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.card,
-      labelStyle: const TextStyle(color: AppColors.textMuted),
-      hintStyle: const TextStyle(color: AppColors.textDim),
+      labelStyle: TextStyle(color: AppColors.textMuted),
+      hintStyle: TextStyle(color: AppColors.textDim),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.cardBorder),
+        borderSide: BorderSide(color: AppColors.cardBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: accent, width: 1.5),
+        borderSide: BorderSide(color: AppColors.rose, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.error),
+        borderSide: BorderSide(color: AppColors.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+        borderSide: BorderSide(color: AppColors.error, width: 1.5),
       ),
     ),
 
     // ── Botões ────────────────────────────────
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: accent,
+        backgroundColor: AppColors.rose,
         foregroundColor: Colors.white,
         elevation: 0,
         minimumSize: const Size(double.infinity, 52),
@@ -99,14 +119,21 @@ class AppTheme {
     // ── BottomNav ─────────────────────────────
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: AppColors.card,
-      selectedItemColor: accent,
+      selectedItemColor: AppColors.rose,
       unselectedItemColor: AppColors.textMuted,
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
 
+    // ── Painéis de baixo (bottom sheets) ──────
+    // Em tela larga (PC/notebook) o painel não estica pela tela toda:
+    // fica centralizado com no máximo 640 px. No celular nada muda.
+    bottomSheetTheme: const BottomSheetThemeData(
+      constraints: BoxConstraints(maxWidth: 640),
+    ),
+
     // ── Divider ───────────────────────────────
-    dividerTheme: const DividerThemeData(
+    dividerTheme: DividerThemeData(
       color: AppColors.cardBorder,
       thickness: 1,
     ),

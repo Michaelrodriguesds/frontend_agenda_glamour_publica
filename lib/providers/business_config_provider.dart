@@ -14,7 +14,7 @@ class BusinessConfigState {
 }
 
 class BusinessConfigNotifier extends StateNotifier<BusinessConfigState> {
-  final BusinessService _service;
+  final BusinessConfigService _service;
 
   BusinessConfigNotifier(this._service)
       : super(const BusinessConfigState(
@@ -55,5 +55,5 @@ class BusinessConfigNotifier extends StateNotifier<BusinessConfigState> {
 
 final businessConfigProvider =
     StateNotifierProvider<BusinessConfigNotifier, BusinessConfigState>((ref) {
-  return BusinessConfigNotifier(BusinessService());
+  return BusinessConfigNotifier(BusinessConfigService());
 });

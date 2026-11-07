@@ -3,15 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/greeting.dart';
 import '../../../data/models/appointment_model.dart';
-import '../../../data/services/appointment_service.dart';
+import '../../../providers/appointments_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../widgets/brand_logo.dart';
+import '../../../providers/theme_provider.dart';
+import '../../../providers/business_config_provider.dart';
+import '../../../core/theme/brand_color.dart';
+import '../../widgets/theme_picker_sheet.dart';
 import '../../widgets/loading_overlay.dart';
 import '../appointments/appointment_form_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 
+// ── Tela inicial ──────────────────────────────────────────────────
+//
+// Antes, esta tela chamava `AppointmentService()` diretamente (duas
+// vezes: "hoje" e "mês inteiro"), por fora do `appointmentsProvider` e
+// do seu cache. Isso tinha dois problemas: (1) zero cache — toda
+// abertura da tela esperava a rede do zero; (2) depois de qualquer
+// edição feita em outra tela, a Home não sabia que precisava recarregar
+// (nenhuma invalidação chegava até ela).
+//
+// Agora a Home reaproveita o `appointmentsProvider` (mesma fonte usada
+// pelo Calendário/Agendamentos): carrega o mês atual (que já cobre
+// "hoje") e deriva a lista de hoje localmente a partir dele — uma
+// chamada de rede a menos, e os mesmos dados/cache/invalidação do
+// resto do app.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -19,13 +38,22 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  List<Appointment> _today    = [];
-  List<Appointment> _monthAll = [];
-  bool _loading     = true;
   int  _lastRefresh = -1;
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    // Idempotente: se o mês atual já estiver carregado (ou carregando),
+    // não dispara uma busca nova — só garante que existe uma em curso.
+    WidgetsBinding.instance.addPostFrameCallback((_) =>
+        ref.read(appointmentsProvider.notifier).ensureMonthLoaded(now.month, now.year));
+  }
+
+  Future<void> _load() async {
+    final now = DateTime.now();
+    await ref.read(appointmentsProvider.notifier).loadMonth(now.month, now.year);
+  }
 
   bool _isPast(Appointment apt) {
     final now   = DateTime.now();
@@ -37,6 +65,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return now.isAfter(DateTime(apt.date.year, apt.date.month, apt.date.day, h, m));
   }
 
+  // Abre a lista de estilos. Se a usuária escolher um, aplica e salva.
+  // O app se redesenha com as cores novas (ver main.dart).
+  Future<void> _pickTheme() async {
+    final cfg = ref.read(businessConfigProvider).config;
+    final chosen = await showThemePicker(
+      context,
+      current: ref.read(themeProvider),
+      brand: BrandColor.parse(cfg.primaryColor), // cor cadastrada pelo negócio
+    );
+    if (chosen == null || !mounted) return;
+    await ref.read(themeProvider.notifier).choose(chosen.palette, useBrandColor: chosen.useBrandColor);
+  }
+
   @override
   Widget build(BuildContext context) {
     final refresh = ref.watch(refreshProvider);
@@ -45,12 +86,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _load());
     }
 
+    final aptState = ref.watch(appointmentsProvider);
+    final loading  = aptState.loading && aptState.appointments.isEmpty;
+    final monthAll = aptState.appointments;
+    final today    = monthAll.where((a) {
+      final now = DateTime.now();
+      return a.date.year == now.year && a.date.month == now.month && a.date.day == now.day;
+    }).toList();
+
     final now      = DateTime.now();
-    final pending  = _monthAll.where((a) => !a.paid).toList();
-    final unconf   = _monthAll.where((a) => !a.confirmed).toList();
-    final received = _monthAll.where((a) => a.paid).fold<double>(0, (s, a) => s + a.price);
-    final todayPending  = _today.where((a) => !_isPast(a)).toList();
-    final todayFinished = _today.where((a) =>  _isPast(a)).toList();
+    final pending  = monthAll.where((a) => !a.paid).toList();
+    final unconf   = monthAll.where((a) => !a.confirmed).toList();
+    final received = monthAll.where((a) => a.paid).fold<double>(0, (s, a) => s + a.price);
+    final todayPending  = today.where((a) => !_isPast(a)).toList();
+    final todayFinished = today.where((a) =>  _isPast(a)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -61,52 +110,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(AppStrings.appName.toUpperCase(),
-              style: const TextStyle(fontSize: 10, color: AppColors.textMuted, letterSpacing: 2)),
+              style: TextStyle(fontSize: 10, color: AppColors.textMuted, letterSpacing: 2)),
           const Text('Início',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         ]),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_outlined, color: AppColors.textMuted),
+            tooltip: 'Mudar estilo do app',
+            icon: Icon(Icons.palette_outlined, color: AppColors.textMuted),
+            onPressed: _pickTheme,
+          ),
+          IconButton(
+            icon: Icon(Icons.refresh_outlined, color: AppColors.textMuted),
             onPressed: _load,
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.textMuted),
+            icon: Icon(Icons.settings_outlined, color: AppColors.textMuted),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const OnboardingScreen(isFirstSetup: false)),
             ).then((_) { if (mounted) setState(() {}); }),
           ),
           IconButton(
-            icon: const Icon(Icons.logout_outlined, color: AppColors.textMuted),
+            icon: Icon(Icons.logout_outlined, color: AppColors.textMuted),
             onPressed: () => ref.read(authProvider.notifier).logout(),
           ),
         ],
       ),
       body: LoadingOverlay(
-        isLoading: _loading,
+        isLoading: loading,
         child: RefreshIndicator(
           color: AppColors.rose,
           onRefresh: _load,
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _HeroCard(today: now, count: todayPending.length),
+              _HeroCard(
+                today: now,
+                count: todayPending.length,
+                userName: ref.watch(userNameProvider).valueOrNull,
+              ),
               const SizedBox(height: 14),
 
-              GridView.count(
-                crossAxisCount: 2,
+              // Celular: 2 colunas (2x2). Tela larga: os 4 cards em uma
+              // linha só, mais baixos, para não ficarem enormes.
+              LayoutBuilder(builder: (context, box) => GridView.count(
+                crossAxisCount: box.maxWidth >= 700 ? 4 : 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
-                childAspectRatio: 1.45,
+                // 1.45 deixava os cards baixos demais (conteúdo estourava ~4 px
+                // na vertical em telas mais estreitas); 1.25 dá folga.
+                childAspectRatio: box.maxWidth >= 700 ? 1.4 : 1.25,
                 children: [
                   _SummaryCard(
                     icon: '📋', label: 'Agendados', color: AppColors.lavender,
-                    count: _monthAll.length,
-                    names: _monthAll.map((a) => a.clientName).toList(),
-                    onTap: () => _showList(context, '📋 Todos agendados', _monthAll, AppColors.lavender),
+                    count: monthAll.length,
+                    names: monthAll.map((a) => a.clientName).toList(),
+                    onTap: () => _showList(context, '📋 Todos agendados', monthAll, AppColors.lavender),
                   ),
                   _SummaryCard(
                     icon: '⏳', label: 'Não confirmados', color: AppColors.gold,
@@ -127,18 +189,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     names: [],
                   ),
                 ],
-              ),
+              )),
               const SizedBox(height: 20),
 
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('HOJE',
+                Text('HOJE',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 11, letterSpacing: 2)),
                 Text('${todayPending.length} pendente(s)',
-                    style: const TextStyle(color: AppColors.textDim, fontSize: 10)),
+                    style: TextStyle(color: AppColors.textDim, fontSize: 10)),
               ]),
               const SizedBox(height: 8),
 
-              if (todayPending.isEmpty && todayFinished.isEmpty && !_loading)
+              if (todayPending.isEmpty && todayFinished.isEmpty && !loading)
                 _EmptyToday()
               else ...[
                 ...todayPending.map((apt) => _TodayCard(
@@ -152,10 +214,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 if (todayFinished.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('FINALIZADOS',
+                    Text('FINALIZADOS',
                         style: TextStyle(color: AppColors.textDim, fontSize: 11, letterSpacing: 2)),
                     Text('${todayFinished.length} concluído(s)',
-                        style: const TextStyle(color: AppColors.textDim, fontSize: 10)),
+                        style: TextStyle(color: AppColors.textDim, fontSize: 10)),
                   ]),
                   const SizedBox(height: 8),
                   ...todayFinished.map((apt) => _TodayCard(
@@ -175,31 +237,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _load() async {
-    if (!mounted) return;
-    setState(() => _loading = true);
-    final now = DateTime.now();
-    final dateStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    try {
-      final results = await Future.wait([
-        AppointmentService().getAll(date: dateStr),
-        AppointmentService().getAll(month: now.month, year: now.year),
-      ]);
-      if (!mounted) return;
-      // A API já filtra por data — apenas ordena por horário
-      // NÃO re-filtrar por toLocal() pois causa drift de timezone no BR
-      setState(() {
-        _today    = results[0]..sort((a, b) => a.time.compareTo(b.time));
-        _monthAll = results[1];
-        _loading  = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-    }
-  }
-
   void _openEdit(String id) => Navigator.push(
         context,
         MaterialPageRoute(
@@ -216,8 +253,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     if (method == null) return;
     try {
-      await AppointmentService().markAsPaid(apt.id, paymentMethod: method);
-      _load();
+      await ref.read(appointmentsProvider.notifier).markAsPaid(apt.id, paymentMethod: method);
       if (mounted) _snack('✅ Pagamento registrado!', AppColors.green);
     } catch (e) {
       if (mounted) _snack('$e', AppColors.rose);
@@ -226,8 +262,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _confirm(String id) async {
     try {
-      await AppointmentService().confirm(id);
-      _load();
+      await ref.read(appointmentsProvider.notifier).confirmAppointment(id);
       if (mounted) _snack('✅ Confirmada!', AppColors.green);
     } catch (e) {
       if (mounted) _snack('$e', AppColors.rose);
@@ -239,26 +274,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: const Text('Excluir agendamento',
+        title: Text('Excluir agendamento',
             style: TextStyle(color: AppColors.text, fontSize: 16)),
-        content: const Text('Tem certeza? Esta ação não pode ser desfeita.',
+        content: Text('Tem certeza? Esta ação não pode ser desfeita.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar',
+              child: Text('Cancelar',
                   style: TextStyle(color: AppColors.textMuted))),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Excluir',
+              child: Text('Excluir',
                   style: TextStyle(color: AppColors.rose))),
         ],
       ),
     );
     if (ok != true) return;
     try {
-      await AppointmentService().delete(id);
-      _load();
+      await ref.read(appointmentsProvider.notifier).delete(id);
       if (mounted) _snack('🗑️ Agendamento excluído', AppColors.textMuted);
     } catch (e) {
       if (mounted) _snack('$e', AppColors.rose);
@@ -336,19 +370,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                           Text(apt.clientName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.text,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13)),
                           Text(
                             '${apt.procedure} · ${apt.time} · '
                             '${apt.date.day.toString().padLeft(2, '0')}/${apt.date.month.toString().padLeft(2, '0')}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: AppColors.textMuted, fontSize: 11),
                           ),
                         ])),
                     Text('R\$ ${apt.price.toStringAsFixed(0)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.gold,
                             fontWeight: FontWeight.w700,
                             fontSize: 13)),
@@ -384,7 +418,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             child: Row(children: [
-              const Text('⏳ Aguardando confirmação',
+              Text('⏳ Aguardando confirmação',
                   style: TextStyle(
                       color: AppColors.gold,
                       fontWeight: FontWeight.w700,
@@ -398,7 +432,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     border: Border.all(
                         color: AppColors.gold.withValues(alpha: 0.4))),
                 child: Text('${apts.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.gold,
                         fontWeight: FontWeight.w700,
                         fontSize: 12)),
@@ -435,7 +469,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 apt.clientName.isNotEmpty
                                     ? apt.clientName[0].toUpperCase()
                                     : '?',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: AppColors.gold,
                                     fontWeight: FontWeight.w700))),
                       ),
@@ -445,7 +479,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                             Text(apt.clientName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: AppColors.text,
                                     fontWeight: FontWeight.w600,
                                     fontSize: 13)),
@@ -453,7 +487,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               '${apt.procedure} · ${apt.time} · '
                               '${apt.date.day.toString().padLeft(2, '0')}/${apt.date.month.toString().padLeft(2, '0')}  ·  '
                               '${apt.location}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.textMuted, fontSize: 11),
                             ),
                           ])),
@@ -566,7 +600,7 @@ class _TodayCard extends StatelessWidget {
                             ),
                             Text(
                               'R\$ ${apt.price.toStringAsFixed(0)}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.gold,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700),
@@ -579,7 +613,7 @@ class _TodayCard extends StatelessWidget {
                         Text(
                           '${apt.procedure}  ·  ${apt.time}  ·  '
                           '${apt.location}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppColors.textMuted, fontSize: 11),
                         ),
                         const SizedBox(height: 6),
@@ -607,7 +641,7 @@ class _TodayCard extends StatelessWidget {
                         // Ações (só pendentes)
                         if (!isPast && (onPay != null || onConfirm != null)) ...[
                           const SizedBox(height: 8),
-                          const Divider(
+                          Divider(
                               height: 1, color: AppColors.cardBorder),
                           const SizedBox(height: 8),
                           Row(children: [
@@ -693,11 +727,12 @@ class _ActionBtn extends StatelessWidget {
 class _HeroCard extends StatelessWidget {
   final DateTime today;
   final int      count;
-  const _HeroCard({required this.today, required this.count});
+  final String?  userName;
+  const _HeroCard({required this.today, required this.count, this.userName});
   @override
   Widget build(BuildContext context) {
-    final h        = today.hour;
-    final greeting = h < 12 ? 'Bom dia! 🌸' : h < 18 ? 'Boa tarde! ✨' : 'Boa noite! 🌙';
+    // Ex.: "Bom dia, Maria! 🌸" (sem nome: "Bom dia! 🌸").
+    final greeting = buildGreeting(today, userName);
     final dateStr  = DateFormat("EEEE, d 'de' MMMM", 'pt_BR').format(today);
     return Container(
       padding: const EdgeInsets.all(16),
@@ -711,22 +746,22 @@ class _HeroCard extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(dateStr,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
         const SizedBox(height: 4),
         Text(greeting,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.text,
                 fontSize: 22,
                 fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         RichText(
           text: TextSpan(
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
             children: [
               const TextSpan(text: 'Você tem '),
               TextSpan(
                   text: '$count atendimento${count != 1 ? 's' : ''}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.rose, fontWeight: FontWeight.w700)),
               TextSpan(text: ' pendente${count != 1 ? 's' : ''} hoje'),
             ],
@@ -787,7 +822,7 @@ class _SummaryCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     fontSize: 20)),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.textMuted, fontSize: 10)),
             if (names.isNotEmpty) ...[
               const SizedBox(height: 2),
@@ -817,7 +852,7 @@ class _EmptyToday extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('🌟', style: TextStyle(fontSize: 36)),
         const SizedBox(height: 8),
-        const Text('Nenhum atendimento hoje!',
+        Text('Nenhum atendimento hoje!',
             style: TextStyle(
                 color: AppColors.green, fontWeight: FontWeight.w600)),
       ]),
@@ -830,14 +865,14 @@ class _PaySheet extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(20),
     child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Text('Forma de pagamento',
+      Text('Forma de pagamento',
           style: TextStyle(
               color: AppColors.text,
               fontWeight: FontWeight.w700,
               fontSize: 16)),
       const SizedBox(height: 12),
       ...['PIX', 'Cartão', 'Dinheiro'].map((m) => ListTile(
-            title: Text(m, style: const TextStyle(color: AppColors.text)),
+            title: Text(m, style: TextStyle(color: AppColors.text)),
             onTap: () => Navigator.pop(context, m),
           )),
     ]),

@@ -11,6 +11,9 @@ class AppStrings {
 
   // ── App (dinâmico por negócio) ──────────────
   static String appName     = 'BelaAgenda';
+  /// Nome cadastrado pelo negócio ('' se ainda não cadastrou). Diferente de
+  /// [appName], não cai para "BelaAgenda" (usado na assinatura das mensagens).
+  static String businessName = '';
   static String appSubtitle = 'Agenda Online';
   static String logoUrl     = '';
 
@@ -29,6 +32,7 @@ class AppStrings {
   /// e listas do app inteiro com o que o usuário configurou.
   static void applyBusinessConfig(BusinessConfig config) {
     appName     = config.businessName.isNotEmpty ? config.businessName : 'BelaAgenda';
+    businessName = config.businessName.trim();
     logoUrl     = config.logoUrl;
     locations   = config.locations.isNotEmpty ? config.locations : locations;
 

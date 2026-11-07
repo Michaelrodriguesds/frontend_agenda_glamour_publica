@@ -7,6 +7,7 @@ import '../../../providers/stats_provider.dart';
 import '../../../data/models/stats_model.dart';
 import '../../../data/services/stats_service.dart';
 import '../../widgets/loading_overlay.dart';
+import 'marketing_tab.dart';
 
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -17,6 +18,11 @@ class StatsScreen extends ConsumerStatefulWidget {
 class _StatsScreenState extends ConsumerState<StatsScreen> {
   int _month = DateTime.now().month;
   int _year  = DateTime.now().year;
+
+  // 0 = Financeiro (tela de sempre), 1 = Clientes & Marketing.
+  int  _tab = 0;
+  // A aba de marketing só é criada (e só busca dados) na 1ª visita.
+  bool _marketingVisited = false;
 
   static const _months = [
     '', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
@@ -58,21 +64,36 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           const Text('Estatísticas',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         ]),
-        actions: [
+        actions: _tab == 1 ? null : [
           IconButton(
             icon: state.loading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18, height: 18,
                     child: CircularProgressIndicator(
                         color: AppColors.rose, strokeWidth: 2))
-                : const Icon(Icons.refresh_rounded, color: AppColors.textMuted),
+                : Icon(Icons.refresh_rounded, color: AppColors.textMuted),
             onPressed: state.loading
                 ? null
                 : () => ref.read(statsProvider.notifier).load(_month, _year),
           ),
         ],
       ),
-      body: LoadingOverlay(
+      body: Column(
+        children: [
+          _SectionTabs(
+            selected: _tab,
+            onChanged: (i) => setState(() {
+              _tab = i;
+              if (i == 1) _marketingVisited = true;
+            }),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              // expand: cada aba ocupa a área inteira (como antes das abas).
+              sizing: StackFit.expand,
+              children: [
+                LoadingOverlay(
         isLoading: state.loading,
         child: state.stats == null && !state.loading
             ? _AppError(
@@ -91,26 +112,26 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.chevron_left,
+                              icon: Icon(Icons.chevron_left,
                                   color: AppColors.textMuted),
                               onPressed: _prevMonth,
                             ),
                             Text(
                               '${_months[_month]} $_year',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.text,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.chevron_right,
+                              icon: Icon(Icons.chevron_right,
                                   color: AppColors.textMuted),
                               onPressed: _nextMonth,
                             ),
                           ],
                         ),
                       ),
-                      const Divider(height: 1, color: AppColors.cardBorder),
+                      Divider(height: 1, color: AppColors.cardBorder),
                       Expanded(
                         child: _Body(
                           stats: state.stats!,
@@ -119,6 +140,12 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                       ),
                     ],
                   ),
+      ),
+                _marketingVisited ? const MarketingTab() : const SizedBox.shrink(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -213,7 +240,7 @@ class _YearTrendChartState extends State<_YearTrendChart> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.cardBorder),
         ),
-        child: const Center(
+        child: Center(
           child: CircularProgressIndicator(color: AppColors.rose, strokeWidth: 2),
         ),
       );
@@ -230,8 +257,8 @@ class _YearTrendChartState extends State<_YearTrendChart> {
         child: Center(
           child: TextButton.icon(
             onPressed: _load,
-            icon: const Icon(Icons.refresh, color: AppColors.rose, size: 16),
-            label: const Text('Recarregar gráfico anual',
+            icon: Icon(Icons.refresh, color: AppColors.rose, size: 16),
+            label: Text('Recarregar gráfico anual',
                 style: TextStyle(color: AppColors.rose, fontSize: 12)),
           ),
         ),
@@ -250,7 +277,7 @@ class _YearTrendChartState extends State<_YearTrendChart> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.cardBorder),
         ),
-        child: const Text('Sem dados para o ano',
+        child: Text('Sem dados para o ano',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
       );
     }
@@ -272,7 +299,7 @@ class _YearTrendChartState extends State<_YearTrendChart> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   '${widget.year}  —  ${trend.totalYear} atendimentos',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.text,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -280,7 +307,7 @@ class _YearTrendChartState extends State<_YearTrendChart> {
                 ),
                 Text(
                   'R\$ ${trend.revenueYear.toStringAsFixed(0)} no período',
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                 ),
               ]),
             ),
@@ -342,7 +369,7 @@ class _YearTrendChartState extends State<_YearTrendChart> {
                       reservedSize: 28,
                       getTitlesWidget: (val, meta) => Text(
                         val.toInt().toString(),
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.textDim, fontSize: 9),
                       ),
                     ),
@@ -492,7 +519,7 @@ class _RevenueCard extends StatelessWidget {
         border: Border.all(color: AppColors.cardBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('RECEITA DO MÊS',
+        Text('RECEITA DO MÊS',
             style: TextStyle(
                 color: AppColors.textMuted, fontSize: 10, letterSpacing: 2)),
         FittedBox(
@@ -500,7 +527,7 @@ class _RevenueCard extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Text(
             'R\$ ${revenue.total.toStringAsFixed(0)}',
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.gold, fontSize: 32, fontWeight: FontWeight.w700),
           ),
         ),
@@ -516,14 +543,14 @@ class _RevenueCard extends StatelessWidget {
           child: LinearProgressIndicator(
             value:           revenue.receivedPercentage / 100,
             backgroundColor: AppColors.cardBorder,
-            valueColor:      const AlwaysStoppedAnimation(AppColors.green),
+            valueColor:      AlwaysStoppedAnimation(AppColors.green),
             minHeight:       6,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           '${revenue.receivedPercentage}% recebido · ${summary.totalAppointments} atendimentos',
-          style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+          style: TextStyle(color: AppColors.textMuted, fontSize: 10),
         ),
       ]),
     );
@@ -541,7 +568,7 @@ class _RevItem extends StatelessWidget {
             style: TextStyle(
                 color: color, fontWeight: FontWeight.w700, fontSize: 15)),
         Text(label,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
       ]);
 }
 
@@ -552,7 +579,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(title,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textMuted, fontSize: 11, letterSpacing: 1.5)),
       );
 }
@@ -572,7 +599,7 @@ class _ProceduresList extends StatelessWidget {
             color: AppColors.card,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.cardBorder)),
-        child: const Center(
+        child: Center(
           child: Text('Nenhum procedimento no mês',
               style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
         ),
@@ -595,12 +622,12 @@ class _ProceduresList extends StatelessWidget {
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Expanded(
                   child: Text(p.procedure,
-                      style: const TextStyle(color: AppColors.text, fontSize: 13),
+                      style: TextStyle(color: AppColors.text, fontSize: 13),
                       overflow: TextOverflow.ellipsis),
                 ),
                 const SizedBox(width: 8),
                 Text('${p.count} atend.',
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
               ]),
               const SizedBox(height: 4),
               ClipRRect(
@@ -626,7 +653,9 @@ class _PaymentPieChart extends StatelessWidget {
   final List<PaymentMethodStat> methods;
   const _PaymentPieChart({required this.methods});
 
-  static const _colors = [
+  // `get` (e não `final`): recalcula a cada uso, então acompanha o estilo
+  // escolhido. Um `static final` guardaria as cores do primeiro estilo.
+  static List<Color> get _colors => [
     AppColors.green, AppColors.lavender, AppColors.gold, AppColors.rose
   ];
 
@@ -639,7 +668,7 @@ class _PaymentPieChart extends StatelessWidget {
             color: AppColors.card,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.cardBorder)),
-        child: const Center(
+        child: Center(
           child: Text('Sem pagamentos registrados',
               style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
         ),
@@ -686,7 +715,7 @@ class _PaymentPieChart extends StatelessWidget {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text('${e.value.method} ${e.value.percentage}%',
-                          style: const TextStyle(color: AppColors.text, fontSize: 11),
+                          style: TextStyle(color: AppColors.text, fontSize: 11),
                           overflow: TextOverflow.ellipsis),
                     ),
                   ]),
@@ -725,7 +754,7 @@ class _LocationBars extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('📍 ${l.location}',
-                    style: const TextStyle(color: AppColors.text, fontSize: 12)),
+                    style: TextStyle(color: AppColors.text, fontSize: 12)),
                 Text('${l.percentage}%',
                     style: TextStyle(
                         color: c, fontWeight: FontWeight.w700, fontSize: 12)),
@@ -755,7 +784,8 @@ class _TopClients extends StatelessWidget {
   const _TopClients({required this.clients});
 
   static const _medals = ['🥇', '🥈', '🥉'];
-  static const _colors = [AppColors.gold, AppColors.lavender, AppColors.rose];
+  // `get`: acompanha o estilo escolhido (ver _PaymentPieChart._colors).
+  static List<Color> get _colors => [AppColors.gold, AppColors.lavender, AppColors.rose];
 
   @override
   Widget build(BuildContext context) {
@@ -766,7 +796,7 @@ class _TopClients extends StatelessWidget {
             color: AppColors.card,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.cardBorder)),
-        child: const Center(
+        child: Center(
           child: Text('Sem clientes no mês',
               style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
         ),
@@ -797,9 +827,9 @@ class _TopClients extends StatelessWidget {
               ),
             ),
             title: Text(c.clientName,
-                style: const TextStyle(color: AppColors.text, fontSize: 13)),
+                style: TextStyle(color: AppColors.text, fontSize: 13)),
             subtitle: Text('${c.count} atendimentos',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
             trailing: Text('R\$ ${c.revenue.toStringAsFixed(0)}',
                 style: TextStyle(color: color, fontWeight: FontWeight.w700)),
           );
@@ -822,14 +852,72 @@ class _AppError extends StatelessWidget {
           const Text('😕', style: TextStyle(fontSize: 36)),
           const SizedBox(height: 8),
           Text(message,
-              style: const TextStyle(color: AppColors.textMuted),
+              style: TextStyle(color: AppColors.textMuted),
               textAlign: TextAlign.center),
           const SizedBox(height: 4),
           TextButton(
             onPressed: onRetry,
-            child: const Text('Tentar novamente',
+            child: Text('Tentar novamente',
                 style: TextStyle(color: AppColors.rose)),
           ),
         ]),
       );
+}
+
+// ── Abas internas: Financeiro | Clientes & Marketing ────────────────
+class _SectionTabs extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onChanged;
+  const _SectionTabs({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tab(int index, String label) {
+      final active = index == selected;
+      return Expanded(
+        child: Semantics(
+          selected: active,
+          button: true,
+          child: Material(
+            color: active ? AppColors.rose : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => onChanged(index),
+              child: SizedBox(
+                height: 40,
+                child: Center(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: active ? Colors.white : AppColors.textMuted,
+                      fontSize: 13,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Row(children: [
+          tab(0, 'Financeiro'),
+          const SizedBox(width: 4),
+          tab(1, 'Clientes & Marketing'),
+        ]),
+      ),
+    );
+  }
 }

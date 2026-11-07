@@ -3,10 +3,20 @@
 Agenda online para negócios de beleza. Cada usuário configura logo, cor, serviços e 1–2 locais.
 Teste grátis de 30 dias; depois o app mostra a tela de bloqueio com o **ID** do cliente e um botão de WhatsApp para você liberar.
 
+## O que cada negócio personaliza
+- Nome, logo, **cor da marca**, **seu nome** (saudação "Bom dia, Ana!"), 1–2 locais.
+- Serviços com preço e **dias para retorno** (lembretes da aba Marketing).
+- No aparelho: **estilo do app** (6 opções) e se usa a cor da marca.
+
+Guias: `docs/TEMAS.md` (estilos), `docs/MARKETING.md` (aba Clientes & Marketing),
+`docs/HISTORICO.md` (todas as mudanças).
+
 ## Rodar em desenvolvimento
 ```bash
 flutter pub get
 flutter run --dart-define=API_URL=http://10.0.2.2:5000     # emulador Android → backend local
+flutter analyze
+flutter test        # estilos/cor da marca, saudação, marketing
 ```
 
 ## Gerar o app para a Play Store

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/services/auth_service.dart';
+import '../../widgets/max_width.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -49,7 +50,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return MaxWidth(
+      // PC/notebook: largura de cartão; no celular nada muda.
+      maxWidth: 460,
+      child: Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -64,12 +68,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_done) ...[
-                  const Icon(Icons.check_circle_outline, color: AppColors.green, size: 48),
+                  Icon(Icons.check_circle_outline, color: AppColors.green, size: 48),
                   const SizedBox(height: 16),
-                  const Text('Senha redefinida!',
+                  Text('Senha redefinida!',
                       style: TextStyle(color: AppColors.text, fontSize: 20, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
-                  const Text('Volte e faça login com sua nova senha.',
+                  Text('Volte e faça login com sua nova senha.',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
                   const SizedBox(height: 24),
                   ElevatedButton(
@@ -79,25 +83,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ] else ...[
                   Text(
                     _codeSent ? 'Digite o código recebido' : 'Informe seu e-mail',
-                    style: const TextStyle(color: AppColors.text, fontSize: 20, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: AppColors.text, fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _codeSent
                         ? 'Enviamos um código de 6 dígitos para ${_emailCtrl.text.trim()}. Ele expira em 15 minutos.'
                         : 'Vamos enviar um código de verificação para redefinir sua senha.',
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
                   const SizedBox(height: 28),
 
-                  const Text('E-mail', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  Text('E-mail', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: _emailCtrl,
                     enabled: !_codeSent,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: AppColors.text),
-                    decoration: const InputDecoration(
+                    style: TextStyle(color: AppColors.text),
+                    decoration: InputDecoration(
                       hintText: 'seuemail@exemplo.com',
                       prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted),
                     ),
@@ -106,26 +110,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                   if (_codeSent) ...[
                     const SizedBox(height: 16),
-                    const Text('Código recebido por e-mail', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    Text('Código recebido por e-mail', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _codeCtrl,
                       keyboardType: TextInputType.number,
-                      style: const TextStyle(color: AppColors.text),
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: AppColors.text),
+                      decoration: InputDecoration(
                         hintText: '000000',
                         prefixIcon: Icon(Icons.pin_outlined, color: AppColors.textMuted),
                       ),
                       validator: (v) => (v == null || v.trim().length != 6) ? 'Código de 6 dígitos' : null,
                     ),
                     const SizedBox(height: 16),
-                    const Text('Nova senha', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    Text('Nova senha', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _newPassCtrl,
                       obscureText: true,
-                      style: const TextStyle(color: AppColors.text),
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: AppColors.text),
+                      decoration: InputDecoration(
                         hintText: 'mínimo 6 caracteres',
                         prefixIcon: Icon(Icons.lock_outline, color: AppColors.textMuted),
                       ),
@@ -142,7 +146,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppColors.rose.withValues(alpha: 0.3)),
                       ),
-                      child: Text(_error!, style: const TextStyle(color: AppColors.rose, fontSize: 12)),
+                      child: Text(_error!, style: TextStyle(color: AppColors.rose, fontSize: 12)),
                     ),
                   const SizedBox(height: 24),
 
@@ -160,6 +164,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

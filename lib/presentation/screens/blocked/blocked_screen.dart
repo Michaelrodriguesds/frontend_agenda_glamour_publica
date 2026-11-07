@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/trial_gate.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/refresh_provider.dart';
+import '../../widgets/max_width.dart';
 
 // Seu WhatsApp (DDI+DDD, só dígitos). Defina no build:
 //   --dart-define=SUPPORT_WHATSAPP=5521999999999
@@ -18,7 +19,10 @@ class BlockedScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final businessId = TrialGate.instance.businessId ?? '—';
 
-    return Scaffold(
+    return MaxWidth(
+      // PC/notebook: largura de cartão; no celular nada muda.
+      maxWidth: 560,
+      child: Scaffold(
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -28,13 +32,13 @@ class BlockedScreen extends ConsumerWidget {
               children: [
                 const Text('⏳', style: TextStyle(fontSize: 56)),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Seu período grátis acabou',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.text, fontSize: 22, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Entre em contato informando o ID abaixo para liberar mais 30 dias de acesso.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.textMuted, fontSize: 14),
@@ -50,11 +54,11 @@ class BlockedScreen extends ConsumerWidget {
                   ),
                   child: Column(
                     children: [
-                      const Text('SEU ID', style: TextStyle(color: AppColors.textMuted, fontSize: 11, letterSpacing: 1.5)),
+                      Text('SEU ID', style: TextStyle(color: AppColors.textMuted, fontSize: 11, letterSpacing: 1.5)),
                       const SizedBox(height: 4),
                       SelectableText(
                         businessId,
-                        style: const TextStyle(color: AppColors.rose, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: 2),
+                        style: TextStyle(color: AppColors.rose, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: 2),
                       ),
                     ],
                   ),
@@ -91,13 +95,13 @@ class BlockedScreen extends ConsumerWidget {
 
                 TextButton(
                   onPressed: () => ref.read(authProvider.notifier).logout(),
-                  child: const Text('Sair', style: TextStyle(color: AppColors.textMuted)),
+                  child: Text('Sair', style: TextStyle(color: AppColors.textMuted)),
                 ),
               ],
             ),
           ),
         ),
       ),
-    );
+    ));
   }
 }

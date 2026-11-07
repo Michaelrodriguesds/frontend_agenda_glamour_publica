@@ -39,4 +39,15 @@ class ApiEndpoints {
   static String get notes           => '$_base/api/notes';
   static String noteById(String id) => '$_base/api/notes/$id';
   static String pinNote(String id)  => '$_base/api/notes/$id/pin';
+
+  // ── Clientes (agregado, não depende de GET /appointments sem filtro) ──
+  static String get clients => '$_base/api/clients';
+
+  // ── Clientes & Marketing (aba em Estatísticas) ──────────────────────
+  static String get marketingReminders => '$_base/api/marketing/reminders';
+  static String get marketingSent      => '$_base/api/marketing/reminders/sent';
+  static String get marketingMovement  => '$_base/api/marketing/movement';
+  static String get marketingSegments  => '$_base/api/marketing/segments';
+  static String marketingPrefs(String clientName) =>
+      '$_base/api/marketing/prefs/${Uri.encodeComponent(clientName)}';
 }
